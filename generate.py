@@ -709,11 +709,18 @@ def synth(z):
 @torch.inference_mode()
 def checkin(i, losses):
     losses_str = ', '.join(f'{loss.item():g}' for loss in losses)
-    tqdm.write(f'i: {i}, loss: {sum(losses).item():g}, losses: {losses_str}')
     out = synth(z)
     info = PngImagePlugin.PngInfo()
     info.add_text('comment', f'{args.prompts}')
-    TF.to_pil_image(out[0].cpu()).save(args.output, pnginfo=info) 	
+
+    if(i != args.max_iterations):
+        path_parts = args.output.rsplit(".", 1)
+        save_filename = f'{path_parts[0]}_{i}.{path_parts[1]}'
+    else:
+        save_filename = f'{args.output}'
+
+    TF.to_pil_image(out[0].cpu()).save(save_filename, pnginfo=info)
+    tqdm.write(f'i: {i}, loss: {sum(losses).item():g}, losses: {losses_str}, saved: {save_filename}')
 
 
 def ascend_txt():
@@ -742,7 +749,7 @@ def train(i):
     opt.zero_grad(set_to_none=True)
     lossAll = ascend_txt()
     
-    if i % args.display_freq == 0:
+    if i % args.display_freq == 0 or i == args.max_iterations:
         checkin(i, lossAll)
        
     loss = sum(lossAll)
@@ -908,6 +915,7 @@ try:
                         opt = get_opt(args.optimiser, args.step_size)
 
             i += 1
+            sys.stdout.flush()
             pbar.update()
 except KeyboardInterrupt:
     pass
